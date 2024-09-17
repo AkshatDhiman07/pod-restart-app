@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flask App</title>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    // Fetch deployments when a namespace is typed for logs
+    function fetchDeploymentsForLogs() {
+        const namespace = $('#namespace_logs').val();
+        if (namespace) {
+            $.post('/get_deployments', {namespace: namespace}, function(data) {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    // Clear the existing deployment dropdown
+                    $('#deployment_logs').empty();
+                    $('#deployment_logs').append(new Option("--Select Deployment--", ""));
+
+                    // Populate dropdown with deployment names
+                    data.deployments.forEach(function(deployment) {
+                        $('#deployment_logs').append(new Option(deployment, deployment));
+                    });
+                }
+            }).fail(function(xhr, status, error) {
+                alert("Error fetching deployments: " + xhr.responseText);
+            });
+        }
+    }
+
+    // Fetch pods when a deployment is selected for logs
+    function fetchPodsForLogs() {
+        const namespace = $('#namespace_logs').val();
+        const deployment = $('#deployment_logs').val();
+        if (namespace && deployment) {
+            $.post('/get_pods', {namespace: namespace, deployment: deployment}, function(data) {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    // Clear the existing pods dropdown
+                    $('#pod').empty();
+                    $('#pod').append(new Option("--Select Pod--", ""));
+
+                    // Populate dropdown with pod names
+                    data.pods.forEach(function(pod) {
+                        $('#pod').append(new Option(pod, pod));
+                    });
+                }
+            }).fail(function(xhr, status, error) {
+                alert("Error fetching pods: " + xhr.responseText);
+            });
+        }
+    }
+</script>
+
+<script>
+    // Fetch deployments when a namespace is typed for pod restart
+    function fetchDeploymentsForRestart() {
+        const namespace = $('#namespace_restart').val();
+        if (namespace) {
+            $.post('/get_deployments', {namespace: namespace}, function(data) {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    // Clear the existing deployment dropdown
+                    $('#deployment_restart').empty();
+                    $('#deployment_restart').append(new Option("--Select Deployment--", ""));
+
+                    // Populate dropdown with deployment names
+                    data.deployments.forEach(function(deployment) {
+                        $('#deployment_restart').append(new Option(deployment, deployment));
+                    });
+                }
+            }).fail(function(xhr, status, error) {
+                alert("Error fetching deployments: " + xhr.responseText);
+            });
+        }
+    }
+</script>
+
+</head>
+<body>
+    <!-- Flash messages block -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <ul>
+                {% for message in messages %}
+                    <li>{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+    <h1>Restart Pod</h1>
+<form method="POST" action="/restart_pod">
+    <!-- Namespace input to trigger fetching of deployments for restart -->
+    <label for="namespace_restart">Namespace:</label><br>
+    <input type="text" id="namespace_restart" name="namespace" oninput="fetchDeploymentsForRestart()"><br><br>
+
+    <!-- Dropdown for deployments in restart section -->
+    <label for="deployment_restart">Deployment Name:</label><br>
+    <select id="deployment_restart" name="deployment">
+        <option value="">--Select Deployment--</option>
+    </select><br><br>
+
+    <input type="submit" value="Restart Pod">
+</form>
+
+    <h1>Download Logs</h1>
+    <form method="POST" action="/download_logs">
+        <!-- Namespace input to trigger fetching of deployments -->
+        <label for="namespace_logs">Namespace:</label><br>
+        <input type="text" id="namespace_logs" name="namespace" oninput="fetchDeploymentsForLogs()"><br><br>
+
+        <!-- Dropdown for deployments -->
+        <label for="deployment_logs">Deployment Name:</label><br>
+        <select id="deployment_logs" name="deployment" onchange="fetchPodsForLogs()">
+        <option value="">--Select Deployment--</option>
+        </select><br><br>
+
+    <!-- Dropdown for pods -->
+    <label for="pod">Pod Name:</label><br>
+    <select id="pod" name="pod">
+        <option value="">--Select Pod--</option>
+    </select><br><br>
+
+    <input type="submit" value="Download Logs">
+</form>
+</body>
+</html>

@@ -1,0 +1,107 @@
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+import subprocess
+import os
+
+app = Flask(__name__)
+app.secret_key = '123@123'  # Needed for flash messages
+
+# Home page with input form
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# Route to handle form submission and pod restart
+@app.route('/restart_pod', methods=['POST'])
+def restart_pod():
+    deployment = request.form['deployment']
+    namespace = request.form['namespace']
+
+    if not deployment or not namespace:
+        flash('Please provide both deployment name and namespace!')
+        return redirect(url_for('index'))
+
+    # Restart the pod using kubectl rollout restart command
+    try:
+        # Run the kubectl command to restart the deployment's pod
+        cmd = f"kubectl rollout restart deployment {deployment} -n {namespace}"
+        result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+        flash(f"Successfully restarted deployment {deployment} in namespace {namespace}")
+    except subprocess.CalledProcessError as e:
+        flash(f"Error restarting deployment: {e.output}")
+
+    return redirect(url_for('index'))
+
+# Route to handle logs download
+@app.route('/download_logs', methods=['POST'])
+def download_logs():
+    namespace = request.form['namespace']
+    pod = request.form['pod']
+
+    if not namespace or not pod:
+        flash('Please provide both pod name and namespace!')
+        return redirect(url_for('index'))
+
+    try:
+        # Run the kubectl command to fetch logs for the pod
+        log_file_path=f"/tmp/{pod}_logs.txt"
+        cmd = f"kubectl logs {pod} --timestamps -n {namespace}"
+        result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+
+        # Write logs to a file
+        with open(log_file_path, 'w') as log_file:
+            log_file.write(result.stdout)
+
+        return send_file(log_file_path, as_attachment=True, download_name=f"{pod}_logs.txt")
+    except subprocess.CalledProcessError as e:
+        flash(f"Error fetching logs: {e.output}")
+
+    return redirect(url_for('index'))
+
+# Route to fetch deployments for a namespace
+@app.route('/get_deployments', methods=['POST'])
+def get_deployments():
+    namespace = request.form['namespace']
+
+    if not namespace:
+        return jsonify({"error": "Please provide a namespace!"}), 400
+
+    try:
+        # Get the deployments in the given namespace
+        cmd = f"kubectl get deployments -n {namespace} -o jsonpath='{{.items[*].metadata.name}}'"
+        result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+
+        deployments = result.stdout.strip().split()
+
+        if not deployments:
+            return jsonify({"error": f"No deployments found in namespace {namespace}"}), 404
+
+        return jsonify({"deployments": deployments})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": f"Error fetching deployments: {e.stderr}"}), 500
+
+# Route to fetch pods for a deployment in a namespace
+@app.route('/get_pods', methods=['POST'])
+def get_pods():
+    namespace = request.form['namespace']
+    deployment = request.form['deployment']
+
+    if not namespace or not deployment:
+        return jsonify({"error": "Please provide both deployment name and namespace!"}), 400
+
+    try:
+        # Get pods for the deployment
+        cmd_get_pods = f"kubectl get pods -n {namespace} -l app={deployment} -o jsonpath='{{.items[*].metadata.name}}'"
+        result = subprocess.run(cmd_get_pods, shell=True, check=True, capture_output=True, text=True)
+
+        pod_names = result.stdout.strip().split()
+
+        if not pod_names:
+            return jsonify({"error": f"No pods found for deployment {deployment} in namespace {namespace}"}), 404
+
+        return jsonify({"pods": pod_names})
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": f"Error fetching pods: {e.stderr}"}), 500
+
+
+if __name__ == '__main__':
+  app.run(host='0.0.0.0', port=5001)

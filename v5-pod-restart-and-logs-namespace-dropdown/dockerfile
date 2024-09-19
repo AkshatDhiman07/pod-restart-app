@@ -1,0 +1,16 @@
+FROM python:3.11-alpine
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+WORKDIR /app
+RUN apk update && apk add --no-cache bash curl ca-certificates openssl \
+    && curl -LO "https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && chmod +x kubectl \
+    && mv kubectl /usr/local/bin/ \
+    && apk add --no-cache libc6-compat
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 5004
+ENV POD-ACTIONS-APP=app.py
+ENV FLASK_RUN_HOST=0.0.0.0
+CMD ["flask", "run"]

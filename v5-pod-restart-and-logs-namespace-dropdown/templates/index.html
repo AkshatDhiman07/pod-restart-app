@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pod Actions App</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Kubernetes Pod Actions App</h1>
+ 
+    <!-- Namespace Dropdown -->
+    <h2>Select Namespace from the dropdown</h2>
+    <form method="POST" id="deployment-form" action="/api/restart">
+        <label for="namespace">Namespace:</label>
+        <select id="namespace" name="namespace">
+            <option value="">Select a Namespace</option>
+            {% for namespace in namespaces %}
+                <option value="{{ namespace }}">{{ namespace }}</option>
+            {% endfor %}
+        </select>
+ 
+        <!-- Deployment Dropdown (populated via AJAX based on namespace) -->
+        <br><br>
+	<h2>Select Deployment you want to Restart</h2>
+        <label for="deployment">Deployment:</label>
+        <select id="deployment" name="deployment">
+            <option value="">Select a Deployment</option>
+        </select>
+ 
+        <!-- Submit Button to Restart Deployment -->
+        <br><br>
+        <button type="submit">Restart Deployment</button>
+
+	<!-- Pod Dropdown (populated via AJAX based on deployment) -->
+        <br><br>
+	<br><br>
+	<h2>Select Pod to download logs</h2>
+        <label for="pod">Pod:</label>
+        <select id="pod" name="pod">
+            <option value="">Select a Pod</option>
+        </select>
+
+    </form>
+ 
+    <!-- Form for downloading logs -->
+    <form method="POST" id="log-form" action="/api/logs">
+        <input type="hidden" id="namespace-logs" name="namespace">
+        <input type="hidden" id="pod-logs" name="pod">
+ 
+        <!-- Submit Button to Download Logs -->
+	<br>
+        <button type="submit">Download Logs</button>
+    </form>
+ 
+    <script>
+        // Fetch deployments when a namespace is selected
+        $('#namespace').change(function() {
+            var namespace = $(this).val();
+            if (namespace) {
+                $('#namespace-logs').val(namespace); // Set for log form
+                $.ajax({
+                    url: '/api/deployments',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ namespace: namespace }),
+                    success: function(deployments) {
+                        $('#deployment').empty().append('<option value="">Select a Deployment</option>');
+                        $.each(deployments, function(index, deployment) {
+                            $('#deployment').append('<option value="' + deployment + '">' + deployment + '</option>');
+                        });
+                    }
+                });
+            } else {
+                $('#deployment').empty().append('<option value="">Select a Deployment</option>');
+            }
+        });
+ 
+        // Fetch pods when a deployment is selected
+        $('#deployment').change(function() {
+            var namespace = $('#namespace').val();
+            var deployment = $(this).val();
+            if (deployment) {
+                $.ajax({
+                    url: '/api/pods',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ namespace: namespace, deployment: deployment }),
+                    success: function(pods) {
+                        $('#pod').empty().append('<option value="">Select a Pod</option>');
+                        $.each(pods, function(index, pod) {
+                            $('#pod').append('<option value="' + pod + '">' + pod + '</option>');
+                        });
+                    }
+                });
+            } else {
+                $('#pod').empty().append('<option value="">Select a Pod</option>');
+            }
+        });
+ 
+        // Update hidden fields for log form submission
+        $('#pod').change(function() {
+            var pod = $(this).val();
+            $('#pod-logs').val(pod); // Set for log form
+        });
+    </script>
+</body>
+</html>
